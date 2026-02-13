@@ -4,36 +4,10 @@ import { motion } from "framer-motion";
 /*
   MorphBlobs — Spotify Wrapped-style morphing blob backgrounds.
 
-  Renders 3–4 organic SVG blobs with gradient fills that slowly
-  morph between shapes, drift around, and overlap with blend modes.
-
-  Each slide gets a unique blob arrangement based on its `seed`.
+  Uses CSS border-radius blobs instead of SVG path morphing for
+  better mobile GPU performance. Each blob is a div with animated
+  border-radius, position, and scale — all GPU-compositable properties.
 */
-
-// ── Blob path keyframes ─────────────────────────────────────────
-// Each array is a set of organic SVG paths the blob morphs between.
-const BLOB_PATHS = [
-  [
-    "M44.7,-76.3C58.5,-69.1,70.6,-58.2,78.3,-44.7C86,-31.2,89.4,-15.6,88.5,-0.5C87.6,14.6,82.5,29.2,74.1,41.8C65.7,54.4,54.1,65,40.7,72.4C27.3,79.9,12.1,84.2,-2.4,87.7C-16.8,91.2,-30.5,93.9,-43.2,87.6C-55.9,81.4,-67.7,66.1,-75.5,49.7C-83.3,33.3,-87.1,15.8,-86.1,0.6C-85.1,-14.6,-79.2,-27.6,-71.4,-39.5C-63.6,-51.4,-53.8,-62.3,-41.6,-70.3C-29.4,-78.4,-14.7,-83.7,0.7,-84.9C16.1,-86.1,30.9,-83.5,44.7,-76.3Z",
-    "M39.6,-67.4C52.3,-61.7,64.5,-53.5,72.4,-41.8C80.3,-30.2,83.9,-15.1,83.3,-0.3C82.8,14.5,78.2,28.9,70.3,41.1C62.4,53.2,51.2,63,38.3,70.1C25.3,77.2,10.7,81.6,-3.1,87.1C-16.9,92.5,-29.8,98.9,-42.1,92.8C-54.4,86.7,-66,68.1,-73.3,51.3C-80.5,34.5,-83.4,19.7,-82.8,0.3C-82.3,-19,-78.3,-42.8,-66.6,-57.3C-54.9,-71.8,-35.5,-77,-18.8,-79.1C-2.1,-81.2,12,-80.2,26.9,-73.1Z",
-    "M47.2,-79.4C60.6,-73.5,70.5,-59.7,77.5,-44.8C84.5,-29.9,88.7,-14,88.6,0C88.6,13.9,84.3,27.8,76.5,39.6C68.7,51.4,57.4,61,44.3,68.3C31.2,75.5,16.3,80.3,0.6,79.3C-15,78.3,-30.7,71.5,-44.5,62.4C-58.3,53.3,-70.3,41.9,-77.2,27.8C-84.2,13.6,-86.2,-3.3,-82.4,-18.6C-78.7,-33.9,-69.2,-47.7,-56.7,-54.1C-44.3,-60.5,-28.9,-59.5,-15.4,-63.3C-1.9,-67.1,9.7,-75.6,23.4,-78.7C37.1,-81.8,52.8,-79.5,47.2,-79.4Z",
-  ],
-  [
-    "M38.9,-64.9C50.2,-60.5,59,-49.6,66.9,-37.3C74.8,-25.1,81.8,-11.5,82.6,2.6C83.4,16.7,78.1,31.3,68.6,41.6C59.1,51.9,45.5,58,32.2,64.3C18.8,70.6,5.8,77.1,-8.4,79.3C-22.7,81.5,-38.1,79.5,-50.4,71.6C-62.6,63.7,-71.7,50,-77.3,34.8C-82.9,19.6,-85.1,2.8,-81.7,-12.1C-78.3,-27,-69.3,-40.1,-57.5,-49.6C-45.8,-59.1,-31.2,-65,-17.4,-68.3C-3.6,-71.6,9.3,-72.3,22.8,-70.1C36.3,-67.8,50.3,-62.6,38.9,-64.9Z",
-    "M43.2,-73.7C56,-67.1,66.7,-56,74,-42.8C81.3,-29.6,85.2,-14.8,84.3,-0.5C83.4,13.7,77.8,27.5,69.7,39.2C61.5,51,50.7,60.8,38.1,67.2C25.5,73.7,11.1,76.8,-3.6,82.5C-18.3,88.2,-33.3,96.5,-45.4,91.3C-57.5,86.1,-66.8,67.3,-73.2,49.7C-79.7,32.2,-83.4,15.8,-82.3,0.6C-81.2,-14.5,-75.3,-28.3,-66.5,-39.9C-57.8,-51.5,-46.2,-60.9,-33.5,-67.6C-20.8,-74.4,-7,-78.5,4.1,-85.4C15.3,-92.3,30.5,-102,43.2,-73.7Z",
-    "M35.9,-59.7C47.7,-55.2,59.1,-47.4,66.9,-36.4C74.6,-25.5,78.8,-11.4,78.2,2.1C77.5,15.6,72.1,28.5,63.8,39.1C55.4,49.7,44.2,58,31.6,63.7C19,69.4,4.8,72.4,-9.3,73C-23.4,73.6,-37.3,71.8,-48.5,64.4C-59.7,57,-68.1,44,-73.5,29.5C-78.9,15,-81.2,-0.9,-78.3,-15.6C-75.4,-30.3,-67.3,-43.7,-55.8,-52.7C-44.3,-61.7,-29.4,-66.3,-15.5,-68C-1.6,-69.7,11.3,-68.5,24.1,-64.2C36.9,-59.8,49.6,-52.3,35.9,-59.7Z",
-  ],
-  [
-    "M41.4,-70.7C53.6,-64.2,63.5,-53.1,71.2,-40.3C79,-27.5,84.5,-13.1,84.1,0.8C83.7,14.6,77.4,28,68.3,39.1C59.3,50.3,47.5,59.3,34.5,65.6C21.5,72,7.2,75.7,-7.6,77C-22.3,78.3,-37.5,77.3,-49.2,70C-60.9,62.7,-69.2,49.1,-74.6,34.5C-80,19.8,-82.5,4.1,-80.3,-10.8C-78.2,-25.7,-71.3,-39.9,-60.7,-50.5C-50.1,-61.1,-35.8,-68.2,-21.9,-72.8C-8,-77.5,5.4,-79.7,19.1,-78.1C32.8,-76.5,46.8,-71.2,41.4,-70.7Z",
-    "M44.9,-75.7C58.1,-70,68.8,-58,76.2,-44.1C83.6,-30.2,87.7,-14.3,86.5,0.7C85.4,15.8,79.1,30,69.9,41.6C60.7,53.2,48.5,62.2,35.1,68.4C21.7,74.7,7.2,78.2,-7.5,78.4C-22.3,78.7,-37.2,75.8,-49.4,67.9C-61.6,60,-71.2,47.1,-77.2,32.5C-83.2,17.9,-85.7,1.5,-82.6,-13.1C-79.5,-27.8,-70.8,-40.8,-59.3,-50.8C-47.8,-60.8,-33.5,-67.8,-19.6,-72.3C-5.7,-76.7,7.7,-78.7,21.6,-77.5C35.5,-76.4,49.9,-72.1,44.9,-75.7Z",
-    "M38.3,-64C50.5,-58.7,62,-50.5,70.1,-39.1C78.2,-27.7,83,-13.8,83.1,0.1C83.2,14,78.7,28,70.9,39.6C63.2,51.2,52.3,60.5,39.8,67C27.3,73.5,13.2,77.2,-1.7,80C-16.5,82.9,-32,84.9,-44.1,78.6C-56.2,72.4,-65,57.9,-71.2,43.1C-77.4,28.3,-81.1,13.1,-80.1,0.6C-79,-11.9,-73.2,-22.5,-65.1,-32.1C-57.1,-41.7,-46.8,-50.3,-35.3,-56.1C-23.8,-61.9,-11.2,-65,1.3,-67.2C13.8,-69.5,26.2,-71,38.3,-64Z",
-  ],
-  [
-    "M42.6,-72.1C55.4,-66.4,66.1,-55.3,73.5,-42.1C80.9,-28.9,85,-14.4,84.4,-0.4C83.7,13.7,78.4,27.4,70.1,38.9C61.9,50.5,50.8,59.9,38.2,66.1C25.6,72.3,11.6,75.4,-2.4,79.1C-16.4,82.9,-30.5,87.3,-43.1,81.8C-55.8,76.3,-67,61,-74.1,44.5C-81.2,28,-84.2,10.3,-82.1,-6.1C-80,-22.5,-72.8,-37.6,-62,-48.5C-51.3,-59.3,-37,-65.9,-23.3,-70.7C-9.5,-75.5,3.7,-78.4,17.1,-77.5C30.6,-76.5,44.2,-71.8,42.6,-72.1Z",
-    "M37.7,-63.7C49.8,-58.3,61.2,-49.7,69.4,-38.1C77.6,-26.5,82.6,-11.8,82.2,2.5C81.9,16.8,76.3,30.8,67.3,41.8C58.3,52.8,46,60.9,32.6,67.1C19.3,73.3,4.9,77.7,-9.4,78.1C-23.7,78.5,-37.9,74.8,-49.5,66.8C-61.1,58.8,-70.1,46.5,-75.8,32.5C-81.5,18.5,-83.8,2.8,-81.2,-11.8C-78.5,-26.3,-70.9,-39.8,-59.8,-49C-48.6,-58.2,-34,-63.2,-20.5,-67.5C-6.9,-71.8,5.5,-75.4,18.4,-74.5C31.3,-73.6,44.7,-68.3,37.7,-63.7Z",
-    "M46.2,-77.5C59.5,-72.1,69.9,-59.7,77,-45.6C84.1,-31.5,87.9,-15.7,87.2,-0.4C86.5,14.9,81.3,29.8,72.6,42C63.9,54.3,51.7,63.8,38.2,70.2C24.8,76.6,10,79.8,-4.3,80.5C-18.7,81.2,-32.5,79.5,-44.5,73C-56.5,66.4,-66.7,55.1,-73.6,41.8C-80.4,28.5,-84,13.3,-82.8,-1C-81.5,-15.2,-75.3,-28.3,-66.5,-39.2C-57.8,-50.1,-46.4,-58.7,-34.1,-64.8C-21.7,-70.9,-8.5,-74.5,3.8,-80.9C16.2,-87.3,32.9,-96.5,46.2,-77.5Z",
-  ],
-];
 
 // ── Gradient color palettes (matched to slide moods) ────────────
 const PALETTES = {
@@ -51,7 +25,6 @@ const PALETTES = {
   default: [["#FF6B95", "#C471ED"], ["#00D2FF", "#6C5CE7"], ["#FFD700", "#FF416C"]],
 };
 
-// Map slide gradient keywords to a palette name
 function paletteForSlide(gradient) {
   if (!gradient) return "default";
   const g = gradient.toLowerCase();
@@ -69,7 +42,6 @@ function paletteForSlide(gradient) {
   return "default";
 }
 
-// Deterministic-ish seed from slide index
 function seededRandom(seed) {
   let s = seed;
   return () => {
@@ -78,91 +50,66 @@ function seededRandom(seed) {
   };
 }
 
+// Border-radius keyframes for organic blob shapes
+const BLOB_RADII = [
+  "60% 40% 30% 70% / 60% 30% 70% 40%",
+  "30% 60% 70% 40% / 50% 60% 30% 60%",
+  "40% 60% 50% 50% / 35% 50% 65% 50%",
+  "70% 30% 50% 50% / 30% 50% 70% 60%",
+];
+
 export default function MorphBlobs({ slideIndex = 0, gradient = "" }) {
   const palette = PALETTES[paletteForSlide(gradient)] || PALETTES.default;
 
-  // Generate blob configs once per slide
   const blobs = useMemo(() => {
     const rand = seededRandom(slideIndex * 137 + 42);
-    const count = 3;
-    return Array.from({ length: count }, (_, i) => {
-      const pathSet = BLOB_PATHS[i % BLOB_PATHS.length];
+    return Array.from({ length: 3 }, (_, i) => {
       const colors = palette[i % palette.length];
       return {
         id: i,
-        paths: pathSet,
         colors,
-        x: rand() * 60 - 30,       // -30 to 30
+        size: 50 + rand() * 30, // 50-80% of container
+        x: rand() * 60 - 30,
         y: rand() * 60 - 30,
-        scale: rand() * 0.4 + 0.8,  // 0.8 to 1.2
-        rotation: rand() * 60 - 30, // -30 to 30 deg
-        duration: rand() * 6 + 8,   // 8–14s morph cycle
-        driftX: rand() * 40 - 20,   // drift range
-        driftY: rand() * 40 - 20,
-        driftDur: rand() * 8 + 10,  // 10-18s drift cycle
+        driftX: rand() * 30 - 15,
+        driftY: rand() * 30 - 15,
+        duration: rand() * 6 + 10, // 10-16s
+        radiusStart: BLOB_RADII[i % BLOB_RADII.length],
+        radiusMid: BLOB_RADII[(i + 1) % BLOB_RADII.length],
+        radiusEnd: BLOB_RADII[(i + 2) % BLOB_RADII.length],
       };
     });
   }, [slideIndex, palette]);
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-      <svg
-        viewBox="-100 -100 200 200"
-        className="absolute inset-0 w-full h-full"
-        preserveAspectRatio="xMidYMid slice"
-        style={{ filter: "blur(30px)" }}
-      >
-        <defs>
-          {blobs.map((b) => (
-            <linearGradient
-              key={`grad-${b.id}`}
-              id={`blob-grad-${slideIndex}-${b.id}`}
-              x1="0%"
-              y1="0%"
-              x2="100%"
-              y2="100%"
-            >
-              <stop offset="0%" stopColor={b.colors[0]} />
-              <stop offset="100%" stopColor={b.colors[1]} />
-            </linearGradient>
-          ))}
-        </defs>
-
-        {blobs.map((b) => (
-          <motion.g
-            key={b.id}
-            initial={{
-              x: b.x,
-              y: b.y,
-              rotate: b.rotation,
-              scale: b.scale,
-            }}
-            animate={{
-              x: [b.x, b.x + b.driftX, b.x - b.driftX * 0.5, b.x],
-              y: [b.y, b.y - b.driftY, b.y + b.driftY * 0.6, b.y],
-              rotate: [b.rotation, b.rotation + 15, b.rotation - 10, b.rotation],
-              scale: [b.scale, b.scale * 1.1, b.scale * 0.9, b.scale],
-            }}
-            transition={{
-              duration: b.driftDur,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          >
-            <motion.path
-              fill={`url(#blob-grad-${slideIndex}-${b.id})`}
-              opacity={0.6}
-              initial={{ d: b.paths[0] }}
-              animate={{ d: b.paths }}
-              transition={{
-                duration: b.duration,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-            />
-          </motion.g>
-        ))}
-      </svg>
+      {blobs.map((b) => (
+        <motion.div
+          key={b.id}
+          className="absolute"
+          style={{
+            width: `${b.size}%`,
+            height: `${b.size}%`,
+            left: `${50 - b.size / 2}%`,
+            top: `${50 - b.size / 2}%`,
+            background: `linear-gradient(135deg, ${b.colors[0]}, ${b.colors[1]})`,
+            opacity: 0.5,
+            filter: "blur(40px)",
+            willChange: "transform, border-radius",
+          }}
+          animate={{
+            x: [b.x, b.x + b.driftX, b.x - b.driftX * 0.5, b.x],
+            y: [b.y, b.y - b.driftY, b.y + b.driftY * 0.6, b.y],
+            scale: [1, 1.1, 0.95, 1],
+            borderRadius: [b.radiusStart, b.radiusMid, b.radiusEnd, b.radiusStart],
+          }}
+          transition={{
+            duration: b.duration,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+      ))}
     </div>
   );
 }

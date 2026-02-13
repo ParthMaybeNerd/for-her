@@ -233,7 +233,7 @@ export default function ValentineProposal({ slide }) {
     <div className="flex flex-col items-center justify-center w-full h-full p-4 relative overflow-hidden">
       {/* Floating Hearts Background */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-40 z-0">
-        {[...Array(12)].map((_, i) => (
+        {[...Array(6)].map((_, i) => (
           <motion.div
             key={i}
             className="absolute text-pink-400"
