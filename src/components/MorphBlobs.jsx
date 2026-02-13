@@ -2,14 +2,13 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 
 /*
-  MorphBlobs — Spotify Wrapped-style morphing blob backgrounds.
+  MorphBlobs — Spotify Wrapped-style blob backgrounds.
 
-  Uses CSS border-radius blobs instead of SVG path morphing for
-  better mobile GPU performance. Each blob is a div with animated
-  border-radius, position, and scale — all GPU-compositable properties.
+  Uses radial-gradient divs (no filter:blur!) that only animate
+  transform properties (x, y, scale, rotate) — fully GPU-composited
+  on mobile Safari & Chrome.
 */
 
-// ── Gradient color palettes (matched to slide moods) ────────────
 const PALETTES = {
   green:   [["#1DB954", "#1ed760"], ["#14833c", "#1DB954"], ["#0a5a28", "#14833c"]],
   warm:    [["#FF416C", "#FF9A44"], ["#FFD700", "#FF6B6B"], ["#FF416C", "#FFD700"]],
@@ -50,14 +49,6 @@ function seededRandom(seed) {
   };
 }
 
-// Border-radius keyframes for organic blob shapes
-const BLOB_RADII = [
-  "60% 40% 30% 70% / 60% 30% 70% 40%",
-  "30% 60% 70% 40% / 50% 60% 30% 60%",
-  "40% 60% 50% 50% / 35% 50% 65% 50%",
-  "70% 30% 50% 50% / 30% 50% 70% 60%",
-];
-
 export default function MorphBlobs({ slideIndex = 0, gradient = "" }) {
   const palette = PALETTES[paletteForSlide(gradient)] || PALETTES.default;
 
@@ -65,18 +56,17 @@ export default function MorphBlobs({ slideIndex = 0, gradient = "" }) {
     const rand = seededRandom(slideIndex * 137 + 42);
     return Array.from({ length: 3 }, (_, i) => {
       const colors = palette[i % palette.length];
+      const size = 60 + rand() * 40; // 60-100% — larger since no blur to spread them
       return {
         id: i,
         colors,
-        size: 50 + rand() * 30, // 50-80% of container
-        x: rand() * 60 - 30,
-        y: rand() * 60 - 30,
-        driftX: rand() * 30 - 15,
-        driftY: rand() * 30 - 15,
-        duration: rand() * 6 + 10, // 10-16s
-        radiusStart: BLOB_RADII[i % BLOB_RADII.length],
-        radiusMid: BLOB_RADII[(i + 1) % BLOB_RADII.length],
-        radiusEnd: BLOB_RADII[(i + 2) % BLOB_RADII.length],
+        size,
+        left: (rand() * 80 - 40),  // offset from center
+        top: (rand() * 80 - 40),
+        driftX: rand() * 25 - 12,
+        driftY: rand() * 25 - 12,
+        rotation: rand() * 60 - 30,
+        duration: rand() * 6 + 12, // 12-18s (slower = cheaper)
       };
     });
   }, [slideIndex, palette]);
@@ -86,22 +76,23 @@ export default function MorphBlobs({ slideIndex = 0, gradient = "" }) {
       {blobs.map((b) => (
         <motion.div
           key={b.id}
-          className="absolute"
+          className="absolute rounded-full"
           style={{
             width: `${b.size}%`,
             height: `${b.size}%`,
             left: `${50 - b.size / 2}%`,
             top: `${50 - b.size / 2}%`,
-            background: `linear-gradient(135deg, ${b.colors[0]}, ${b.colors[1]})`,
-            opacity: 0.5,
-            filter: "blur(40px)",
-            willChange: "transform, border-radius",
+            // Radial gradient with soft transparent edge = "pre-blurred" look
+            // No filter:blur needed — zero paint cost
+            background: `radial-gradient(circle at 40% 40%, ${b.colors[0]}88, ${b.colors[1]}44 60%, transparent 75%)`,
+            willChange: "transform",
           }}
+          // ONLY transform properties — fully GPU composited, no repaints
           animate={{
-            x: [b.x, b.x + b.driftX, b.x - b.driftX * 0.5, b.x],
-            y: [b.y, b.y - b.driftY, b.y + b.driftY * 0.6, b.y],
-            scale: [1, 1.1, 0.95, 1],
-            borderRadius: [b.radiusStart, b.radiusMid, b.radiusEnd, b.radiusStart],
+            x: [b.left, b.left + b.driftX, b.left - b.driftX * 0.5, b.left],
+            y: [b.top, b.top - b.driftY, b.top + b.driftY * 0.6, b.top],
+            scale: [1, 1.15, 0.9, 1],
+            rotate: [b.rotation, b.rotation + 20, b.rotation - 15, b.rotation],
           }}
           transition={{
             duration: b.duration,
