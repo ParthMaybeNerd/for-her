@@ -220,6 +220,9 @@ export default function ValentineProposal({ slide }) {
     const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
     const randomInRange = (min, max) => Math.random() * (max - min) + min;
 
+    // Notify via email
+    window.open("mailto:parthpandhe8@gmail.com?subject=She%20said%20YES!%20%E2%9D%A4%EF%B8%8F&body=She%20clicked%20Yes!", "_self");
+
     const interval = setInterval(() => {
       const timeLeft = animationEnd - Date.now();
       if (timeLeft <= 0) return clearInterval(interval);
