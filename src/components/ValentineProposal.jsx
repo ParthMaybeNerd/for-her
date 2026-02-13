@@ -220,8 +220,16 @@ export default function ValentineProposal({ slide }) {
     const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
     const randomInRange = (min, max) => Math.random() * (max - min) + min;
 
-    // Notify via email
-    window.open("mailto:parthpandhe8@gmail.com?subject=She%20said%20YES!%20%E2%9D%A4%EF%B8%8F&body=She%20clicked%20Yes!", "_self");
+    // Silent notification via Netlify Forms
+    fetch("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        "form-name": "valentine-response",
+        response: "YES",
+        timestamp: new Date().toLocaleString(),
+      }).toString(),
+    }).catch(() => {});
 
     const interval = setInterval(() => {
       const timeLeft = animationEnd - Date.now();
