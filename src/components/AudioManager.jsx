@@ -1,15 +1,5 @@
 import { useEffect, useRef, useState, useCallback, createContext, useContext } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-
-/* ================================================================
-   AudioManager — background music + transition sound effects
-   ================================================================
-   Drop your background music file at:  public/audio/bg-music.mp3
-   (any format the browser supports: mp3, ogg, wav, m4a)
-
-   The manager auto-starts music on the user's first tap/click
-   (browsers block autoplay without interaction).
-================================================================ */
+import { motion } from "framer-motion";
 
 const AudioContext_ = createContext(null);
 
@@ -23,8 +13,8 @@ export function AudioProvider({ children }) {
   const bgRef = useRef(null);
   const currentSrcRef = useRef(null);
   const webAudioCtx = useRef(null);
+  const pendingTrack = useRef(null); // queued track before first interaction
 
-  // Lazy-init Web Audio for synth sounds
   const getAudioCtx = useCallback(() => {
     if (!webAudioCtx.current) {
       webAudioCtx.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -32,44 +22,59 @@ export function AudioProvider({ children }) {
     return webAudioCtx.current;
   }, []);
 
-  // Start audio system on first user interaction
-  const startAudio = useCallback(() => {
-    if (started) return;
-    setStarted(true);
-    getAudioCtx().resume?.();
-  }, [started, getAudioCtx]);
-
-  // Listen for first interaction
-  useEffect(() => {
-    const handler = () => startAudio();
-    document.addEventListener("pointerdown", handler, { once: true });
-    return () => document.removeEventListener("pointerdown", handler);
-  }, [startAudio]);
-
-  // Switch to a new track (called by StoryShell on slide change)
-  // startTime = seconds into the song to begin playback
-  const playTrack = useCallback((src, startTime = 0) => {
-    if (!src || !started) return;
-    // Skip if already playing this track
+  // Actually play a track (internal, assumes interaction has happened)
+  const doPlay = useCallback((src, startTime = 0) => {
+    if (!src) return;
     if (currentSrcRef.current === src && bgRef.current && !bgRef.current.paused) return;
 
-    // Stop current track immediately (mobile throttles setInterval fades)
     if (bgRef.current) {
       bgRef.current.pause();
       bgRef.current.src = "";
     }
 
-    // Start new track
     const audio = new Audio(src);
     audio.loop = true;
     audio.volume = 0.3;
     audio.muted = muted;
     if (startTime > 0) audio.currentTime = startTime;
-    audio.play().catch(() => { /* file not found — silent fail */ });
+    audio.play().catch(() => {});
 
     bgRef.current = audio;
     currentSrcRef.current = src;
-  }, [started, muted]);
+  }, [muted]);
+
+  // Start audio on first interaction & play any pending track
+  const startAudio = useCallback(() => {
+    if (started) return;
+    setStarted(true);
+    getAudioCtx().resume?.();
+    // Play the queued track
+    if (pendingTrack.current) {
+      const { src, startTime } = pendingTrack.current;
+      pendingTrack.current = null;
+      doPlay(src, startTime);
+    }
+  }, [started, getAudioCtx, doPlay]);
+
+  // Listen for first interaction on multiple events (mobile compatibility)
+  useEffect(() => {
+    if (started) return;
+    const handler = () => startAudio();
+    const events = ["pointerdown", "touchstart", "click", "keydown"];
+    events.forEach((e) => document.addEventListener(e, handler, { once: true }));
+    return () => events.forEach((e) => document.removeEventListener(e, handler));
+  }, [started, startAudio]);
+
+  // Public playTrack — queues if not started yet, plays immediately if started
+  const playTrack = useCallback((src, startTime = 0) => {
+    if (!src) return;
+    if (!started) {
+      // Queue it for when audio unlocks
+      pendingTrack.current = { src, startTime };
+      return;
+    }
+    doPlay(src, startTime);
+  }, [started, doPlay]);
 
   // Mute / unmute
   useEffect(() => {
@@ -80,12 +85,11 @@ export function AudioProvider({ children }) {
 
   // ── Transition whoosh sound (synthesized) ───────────────────
   const playTransition = useCallback(() => {
-    if (muted) return;
+    if (muted || !started) return;
     try {
       const ctx = getAudioCtx();
       const now = ctx.currentTime;
 
-      // White noise burst shaped into a whoosh
       const duration = 0.18;
       const bufferSize = ctx.sampleRate * duration;
       const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
@@ -97,14 +101,12 @@ export function AudioProvider({ children }) {
       const noise = ctx.createBufferSource();
       noise.buffer = buffer;
 
-      // Bandpass filter for a "whoosh" character
       const filter = ctx.createBiquadFilter();
       filter.type = "bandpass";
       filter.frequency.setValueAtTime(1200, now);
       filter.frequency.exponentialRampToValueAtTime(400, now + duration);
       filter.Q.value = 1.5;
 
-      // Envelope
       const gain = ctx.createGain();
       gain.gain.setValueAtTime(0, now);
       gain.gain.linearRampToValueAtTime(0.25, now + 0.03);
@@ -114,13 +116,13 @@ export function AudioProvider({ children }) {
       noise.start(now);
       noise.stop(now + duration);
     } catch {
-      /* Web Audio not supported — silent fail */
+      /* silent fail */
     }
-  }, [muted, getAudioCtx]);
+  }, [muted, started, getAudioCtx]);
 
-  // ── Soft pop sound (for stat reveals) ───────────────────────
+  // ── Soft pop sound ───────────────────────
   const playPop = useCallback(() => {
-    if (muted) return;
+    if (muted || !started) return;
     try {
       const ctx = getAudioCtx();
       const now = ctx.currentTime;
@@ -140,7 +142,7 @@ export function AudioProvider({ children }) {
     } catch {
       /* silent fail */
     }
-  }, [muted, getAudioCtx]);
+  }, [muted, started, getAudioCtx]);
 
   const value = { muted, setMuted, playTransition, playPop, playTrack, started };
 
@@ -168,14 +170,12 @@ function MuteButton({ muted, setMuted, started }) {
       className="fixed bottom-6 right-6 z-[100] w-11 h-11 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white border border-white/20"
     >
       {muted ? (
-        /* Muted icon */
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
           <line x1="23" y1="9" x2="17" y2="15" />
           <line x1="17" y1="9" x2="23" y2="15" />
         </svg>
       ) : (
-        /* Playing icon */
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
           <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
