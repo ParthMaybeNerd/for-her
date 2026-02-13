@@ -12,7 +12,7 @@ const slides = [
   {
     type: "intro",
     gradient: "linear-gradient(135deg, #1DB954 0%, #121212 50%, #1DB954 100%)",
-    video: "/videos/intro.mov",
+    video: "/videos/intro.mp4",
     topLabel: "Our 2025",
     bigText: "Wrapped",
     subtitle: "Every little moment with you deserves a rewind.",

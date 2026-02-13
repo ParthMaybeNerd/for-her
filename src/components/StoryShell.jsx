@@ -133,15 +133,19 @@ export default function StoryShell() {
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
       >
-        {slides.map((slide, i) => (
-          <SlideRenderer
-            key={i}
-            slide={slide}
-            index={i}
-            isActive={i === current}
-            onOverlayChange={setIsPaused}
-          />
-        ))}
+        {slides.map((slide, i) => {
+          // Only mount current and adjacent slides for performance
+          if (Math.abs(i - current) > 1) return null;
+          return (
+            <SlideRenderer
+              key={i}
+              slide={slide}
+              index={i}
+              isActive={i === current}
+              onOverlayChange={setIsPaused}
+            />
+          );
+        })}
       </motion.div>
     </div>
   );
