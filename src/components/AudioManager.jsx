@@ -53,35 +53,19 @@ export function AudioProvider({ children }) {
     // Skip if already playing this track
     if (currentSrcRef.current === src && bgRef.current && !bgRef.current.paused) return;
 
-    // Fade out current track
+    // Stop current track immediately (mobile throttles setInterval fades)
     if (bgRef.current) {
-      const old = bgRef.current;
-      const fadeOut = setInterval(() => {
-        if (old.volume > 0.05) {
-          old.volume = Math.max(0, old.volume - 0.05);
-        } else {
-          clearInterval(fadeOut);
-          old.pause();
-          old.src = "";
-        }
-      }, 30);
+      bgRef.current.pause();
+      bgRef.current.src = "";
     }
 
-    // Start new track with fade in
+    // Start new track
     const audio = new Audio(src);
     audio.loop = true;
-    audio.volume = 0;
+    audio.volume = 0.3;
     audio.muted = muted;
     if (startTime > 0) audio.currentTime = startTime;
     audio.play().catch(() => { /* file not found — silent fail */ });
-
-    const fadeIn = setInterval(() => {
-      if (audio.volume < 0.25) {
-        audio.volume = Math.min(0.3, audio.volume + 0.05);
-      } else {
-        clearInterval(fadeIn);
-      }
-    }, 30);
 
     bgRef.current = audio;
     currentSrcRef.current = src;
